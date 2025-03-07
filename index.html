@@ -5,6 +5,7 @@
     <meta name="description" content="Digital innovation collective managing premium lifestyle and technology brands. Specializing in sustainable luxury, creative technology, and software development since 2025.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Add service worker registration -->
     <script>
@@ -46,6 +47,33 @@
         const urlParams = new URLSearchParams(window.location.search);
         const reloadInterval = parseInt(urlParams.get('reload')) || 5000;
         
+        // Create and initialize the background sync worker
+        let backgroundSyncWorker;
+        try {
+            // Pass the reload parameter to the worker
+            backgroundSyncWorker = new Worker('/background-sync.js?reload=' + reloadInterval);
+            
+            // Set up message handling from the worker
+            backgroundSyncWorker.onmessage = (event) => {
+                if (event.data && event.data.type === 'status') {
+                    isOffline = event.data.isOffline;
+                    const offlineIndicator = document.getElementById('offline-indicator');
+                    if (offlineIndicator) {
+                        offlineIndicator.style.display = isOffline ? 'block' : 'none';
+                    }
+                    document.body.classList.toggle('offline-mode', isOffline);
+                }
+            };
+            
+            // Start the background sync
+            backgroundSyncWorker.postMessage({
+                command: 'start',
+                syncInterval: reloadInterval
+            });
+        } catch (error) {
+            console.error('Failed to create background sync worker:', error);
+        }
+        
         // Prefetch function
         function prefetchPage() {
             return fetch(window.location.href, { cache: "no-store" })
@@ -85,6 +113,17 @@
                     prefetchPromise = null;
                     reloadWithPrefetch();
                     return;
+                }
+                
+                // Check if the reload interval has changed in the URL
+                const currentParams = new URLSearchParams(window.location.search);
+                const currentInterval = parseInt(currentParams.get('reload')) || 5000;
+                
+                // If reload interval changed, update the worker
+                if (backgroundSyncWorker && currentInterval !== reloadInterval) {
+                    backgroundSyncWorker.postMessage({
+                        syncInterval: currentInterval
+                    });
                 }
                 
                 // Only reload if we're online
