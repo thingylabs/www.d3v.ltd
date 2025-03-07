@@ -6,24 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
     
-    <!-- Favicon with strong caching -->
+    <!-- Essential favicons - these are critical -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    
+    <!-- Offline fallback favicon - important for offline mode -->
+    <link rel="preload" href="/favicon-bw.ico" as="image" type="image/x-icon">
+    
+    <!-- Other icons loaded normally (not preloaded) -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    
-    <!-- Preload icons -->
-    <link rel="preload" href="/favicon.ico" as="image" type="image/x-icon">
-    <link rel="preload" href="/favicon-bw.ico" as="image" type="image/x-icon">
-    <link rel="preload" href="/apple-touch-icon.png" as="image">
-    <link rel="preload" href="/apple-touch-icon-bw.png" as="image">
-    <link rel="preload" href="/favicon-32x32.png" as="image">
-    <link rel="preload" href="/favicon-bw-32x32.png" as="image">
-    <link rel="preload" href="/favicon-16x16.png" as="image">
-    <link rel="preload" href="/favicon-bw-16x16.png" as="image">
-    <link rel="preload" href="/android-chrome-192x192.png" as="image">
-    <link rel="preload" href="/android-chrome-192x192-bw.png" as="image">
     
     <link rel="manifest" href="/site.webmanifest">
     
@@ -33,7 +26,6 @@
         function updateFavicon() {
             // Handle standard favicon
             const favicon = document.querySelector("link[rel='shortcut icon']") || 
-                          document.querySelector("link[rel*='icon'][sizes='16x16']") || 
                           document.createElement('link');
             favicon.type = 'image/x-icon';
             favicon.rel = 'shortcut icon';
@@ -129,7 +121,7 @@
         }
         
         // Handle offline status
-        let isOffline = false;
+        let isOffline = !navigator.onLine;
         
         window.addEventListener('online', () => {
             isOffline = false;
@@ -153,35 +145,26 @@
         const urlParams = new URLSearchParams(window.location.search);
         const reloadInterval = parseInt(urlParams.get('reload')) || 5000;
         
-        // Create and initialize the background sync worker
-        let backgroundSyncWorker;
-        try {
-            // Pass the reload parameter to the worker
-            backgroundSyncWorker = new Worker('/background-sync.js?reload=' + reloadInterval);
+        // Simple function to check if page should be reloaded
+        function shouldReload() {
+            // Don't reload if modal is open
+            const modal = document.getElementById('warningModal');
+            if (modal && modal.classList.contains('visible')) {
+                return false;
+            }
             
-            // Set up message handling from the worker
-            backgroundSyncWorker.onmessage = (event) => {
-                if (event.data && event.data.type === 'status') {
-                    isOffline = event.data.isOffline;
-                    const offlineIndicator = document.getElementById('offline-indicator');
-                    if (offlineIndicator) {
-                        offlineIndicator.style.display = isOffline ? 'inline-block' : 'none';
-                    }
-                    document.body.classList.toggle('offline-mode', isOffline);
-                }
-            };
+            // Don't reload if offline
+            if (isOffline) {
+                return false;
+            }
             
-            // Start the background sync
-            backgroundSyncWorker.postMessage({
-                command: 'start',
-                syncInterval: reloadInterval
-            });
-        } catch (error) {
-            console.error('Failed to create background sync worker:', error);
+            return true;
         }
         
-        // Prefetch function
+        // Prefetch function - only used if we're definitely going to reload
         function prefetchPage() {
+            if (!shouldReload()) return Promise.resolve(null);
+            
             return fetch(window.location.href, { cache: "no-store" })
                 .then(response => response.text())
                 .catch(error => {
@@ -190,65 +173,40 @@
                 });
         }
 
-        // Initialize prefetch on page load
-        let prefetchPromise = null;
-        
-        // Reload function with prefetch
-        function reloadWithPrefetch() {
-            // Start prefetch 2 seconds before reload
-            if (!prefetchPromise && reloadInterval > 2000) {
+        // Real reload function
+        function scheduleReload() {
+            // Start prefetch 2 seconds before reload if interval is long enough
+            let prefetchPromise = null;
+            if (reloadInterval > 2000) {
                 setTimeout(() => {
                     prefetchPromise = prefetchPage();
                 }, reloadInterval - 2000);
             }
             
-            // Schedule the reload
+            // Schedule the actual reload
             setTimeout(() => {
-                const modal = document.getElementById('warningModal');
-                if (modal && modal.classList.contains('visible')) {
-                    setTimeout(() => {
-                        reloadWithPrefetch();
-                    }, reloadInterval);
-                    return;
-                }
-                
-                // If we're offline, don't attempt to reload the page
-                if (isOffline) {
-                    console.log('Device is offline, skipping reload');
-                    // Just restart the cycle
+                if (shouldReload()) {
+                    window.location.reload();
+                } else {
+                    // Try again later
+                    console.log('Reload conditions not met, rescheduling');
                     prefetchPromise = null;
-                    reloadWithPrefetch();
-                    return;
+                    scheduleReload();
                 }
-                
-                // Check if the reload interval has changed in the URL
-                const currentParams = new URLSearchParams(window.location.search);
-                const currentInterval = parseInt(currentParams.get('reload')) || 5000;
-                
-                // If reload interval changed, update the worker
-                if (backgroundSyncWorker && currentInterval !== reloadInterval) {
-                    backgroundSyncWorker.postMessage({
-                        syncInterval: currentInterval
-                    });
-                }
-                
-                // Only reload if we're online
-                window.location.reload();
             }, reloadInterval);
         }
 
         // Start the reload cycle when page loads
         window.addEventListener('load', () => {
-            // Check if this is coming from an offline manual refresh
+            // Check if coming from offline manual refresh
             const wasOfflineReload = sessionStorage.getItem('offlineReload') === 'true';
             if (wasOfflineReload) {
                 // Clear the flag
                 sessionStorage.removeItem('offlineReload');
                 
-                // Don't start the auto-refresh cycle immediately
-                if (!navigator.onLine) {
+                // Don't start the auto-refresh cycle immediately if offline
+                if (isOffline) {
                     console.log('Detected manual refresh while offline, delaying auto-refresh');
-                    // Show offline indicator
                     const offlineIndicator = document.getElementById('offline-indicator');
                     if (offlineIndicator) {
                         offlineIndicator.style.display = 'inline-block';
@@ -256,15 +214,13 @@
                     document.body.classList.add('offline-mode');
                     
                     // Start the refresh cycle with a delay
-                    setTimeout(() => {
-                        reloadWithPrefetch();
-                    }, reloadInterval * 2); // Wait double the normal reload time
+                    setTimeout(scheduleReload, reloadInterval * 2);
                     return;
                 }
             }
             
             // Normal load, start refresh cycle
-            reloadWithPrefetch();
+            scheduleReload();
         });
     </script>
     <style>
