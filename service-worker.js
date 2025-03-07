@@ -3,11 +3,13 @@ const CACHE_NAME = 'd3v-site-cache-v1';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/offline.html',
   '/assets/flag-of-seychelles.png',
   '/assets/github-mark.png',
   '/assets/android-chrome-192x192.png',
   '/assets/android-chrome-512x512.png',
   '/site.webmanifest',
+  '/background-sync.js',
   'https://plausible.io/js/script.js'
 ];
 
@@ -19,7 +21,16 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        
+        // First, cache the index.html with highest priority
+        return cache.add('/')
+          .then(() => {
+            // Then cache the rest of the assets
+            return cache.addAll(urlsToCache);
+          })
+          .catch(error => {
+            console.error('Failed to cache assets:', error);
+          });
       })
   );
 });
@@ -42,20 +53,64 @@ self.addEventListener('activate', event => {
   return self.clients.claim();
 });
 
-// Fetch event - Network first with fallback to cache strategy
+// Fetch event - Cache first for html/document requests, network first for everything else
 self.addEventListener('fetch', event => {
-  // Skip cross-origin requests
+  // Skip cross-origin requests except for critical resources
   if (!event.request.url.startsWith(self.location.origin) && 
       !event.request.url.includes('plausible.io')) {
     return;
   }
   
+  // Parse the URL to get the pathname
+  const url = new URL(event.request.url);
+  
+  // Check if this is a navigation request (for a document/HTML)
+  const isNavigationRequest = event.request.mode === 'navigate';
+  
+  // Check if this is a request for the main page or other HTML resources
+  const isHTMLRequest = isNavigationRequest || 
+                        url.pathname === '/' || 
+                        url.pathname.endsWith('.html') ||
+                        url.pathname === '' ||
+                        event.request.headers.get('Accept')?.includes('text/html');
+  
+  if (isHTMLRequest && navigator.onLine === false) {
+    // For HTML requests when offline, go to cache first
+    event.respondWith(
+      caches.match('/index.html')
+        .then(cachedResponse => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          // If index.html isn't cached, try the offline page
+          return caches.match('/offline.html')
+            .then(offlineResponse => {
+              if (offlineResponse) {
+                return offlineResponse;
+              }
+              
+              // If offline page isn't cached, try the network
+              return fetch(event.request)
+                .catch(() => {
+                  // Create a simple offline response if nothing else works
+                  return new Response(
+                    '<html><body><h1>Currently offline</h1><p>Please try again when you have a network connection.</p></body></html>',
+                    { headers: { 'Content-Type': 'text/html' } }
+                  );
+                });
+            });
+        })
+    );
+    return;
+  }
+  
+  // For all other requests, use network first with cache fallback
   event.respondWith(
-    // Try the network first
     fetch(event.request.clone())
       .then(response => {
         // Don't cache if not a valid response
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+        if (!response || response.status !== 200) {
           return response;
         }
         
@@ -77,8 +132,13 @@ self.addEventListener('fetch', event => {
               return cachedResponse;
             }
             
-            // If there's nothing in the cache, try to get the offline page
-            return caches.match('/index.html');
+            // For HTML requests, serve the index page
+            if (isHTMLRequest) {
+              return caches.match('/index.html');
+            }
+            
+            // For other resources, we can't provide a fallback
+            return new Response('Not found in cache', { status: 404 });
           });
       })
   );
