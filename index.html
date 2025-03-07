@@ -5,7 +5,92 @@
     <meta name="description" content="Digital innovation collective managing premium lifestyle and technology brands. Specializing in sustainable luxury, creative technology, and software development since 2025.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
+    
+    <!-- Favicon with strong caching -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    
+    <!-- Preload icons -->
+    <link rel="preload" href="/favicon.ico" as="image" type="image/x-icon">
+    <link rel="preload" href="/favicon-bw.ico" as="image" type="image/x-icon">
+    <link rel="preload" href="/apple-touch-icon.png" as="image">
+    <link rel="preload" href="/apple-touch-icon-bw.png" as="image">
+    <link rel="preload" href="/favicon-32x32.png" as="image">
+    <link rel="preload" href="/favicon-bw-32x32.png" as="image">
+    <link rel="preload" href="/favicon-16x16.png" as="image">
+    <link rel="preload" href="/favicon-bw-16x16.png" as="image">
+    <link rel="preload" href="/android-chrome-192x192.png" as="image">
+    <link rel="preload" href="/android-chrome-192x192-bw.png" as="image">
+    
     <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- Favicon fallback script -->
+    <script>
+        // Function to update favicon based on connection
+        function updateFavicon() {
+            // Handle standard favicon
+            const favicon = document.querySelector("link[rel='shortcut icon']") || 
+                          document.querySelector("link[rel*='icon'][sizes='16x16']") || 
+                          document.createElement('link');
+            favicon.type = 'image/x-icon';
+            favicon.rel = 'shortcut icon';
+            
+            // Handle apple touch icon
+            const appleIcon = document.querySelector("link[rel='apple-touch-icon']") || 
+                             document.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            
+            // Handle 32x32 favicon
+            const favicon32 = document.querySelector("link[rel*='icon'][sizes='32x32']") || 
+                             document.createElement('link');
+            favicon32.rel = 'icon';
+            favicon32.type = 'image/png';
+            favicon32.sizes = '32x32';
+            
+            // Handle 16x16 favicon
+            const favicon16 = document.querySelector("link[rel*='icon'][sizes='16x16']") || 
+                             document.createElement('link');
+            favicon16.rel = 'icon';
+            favicon16.type = 'image/png';
+            favicon16.sizes = '16x16';
+            
+            if (navigator.onLine) {
+                favicon.href = '/favicon.ico';
+                appleIcon.href = '/apple-touch-icon.png';
+                favicon32.href = '/favicon-32x32.png';
+                favicon16.href = '/favicon-16x16.png';
+            } else {
+                favicon.href = '/favicon-bw.ico';
+                appleIcon.href = '/apple-touch-icon-bw.png';
+                favicon32.href = '/favicon-bw-32x32.png';
+                favicon16.href = '/favicon-bw-16x16.png';
+            }
+            
+            const head = document.getElementsByTagName('head')[0];
+            
+            // Add elements if they don't exist
+            if (!document.querySelector("link[rel='shortcut icon']")) {
+                head.appendChild(favicon);
+            }
+            if (!document.querySelector("link[rel='apple-touch-icon']")) {
+                head.appendChild(appleIcon);
+            }
+            if (!document.querySelector("link[rel*='icon'][sizes='32x32']")) {
+                head.appendChild(favicon32);
+            }
+            if (!document.querySelector("link[rel*='icon'][sizes='16x16']")) {
+                head.appendChild(favicon16);
+            }
+        }
+
+        // Check on page load and when connection changes
+        window.addEventListener('load', updateFavicon);
+        window.addEventListener('online', updateFavicon);
+        window.addEventListener('offline', updateFavicon);
+    </script>
     
     <!-- Add service worker registration -->
     <script>
