@@ -5,20 +5,41 @@
     <meta name="description" content="Digital innovation collective managing premium lifestyle and technology brands. Specializing in sustainable luxury, creative technology, and software development since 2025.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/site.webmanifest">
     
     <!-- Add service worker registration -->
     <script>
-        // Register service worker
+        // Register service worker with immediate claim
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registered with scope:', registration.scope);
+                        
+                        // Force update and activate if there's a new service worker
+                        if (registration.waiting) {
+                            registration.waiting.postMessage({type: 'SKIP_WAITING'});
+                        }
+                        
+                        // Check for updates immediately
+                        registration.update();
                     })
                     .catch(error => {
                         console.error('Service Worker registration failed:', error);
                     });
+                    
+                // Listen for controller change (when a new service worker takes over)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    console.log('New service worker activated');
+                });
+            });
+            
+            // Reload page if we're offline and the user attempts manual refresh
+            window.addEventListener('beforeunload', (event) => {
+                if (!navigator.onLine) {
+                    // Store a flag to indicate this is a manual refresh while offline
+                    sessionStorage.setItem('offlineReload', 'true');
+                }
             });
         }
         
@@ -133,6 +154,31 @@
 
         // Start the reload cycle when page loads
         window.addEventListener('load', () => {
+            // Check if this is coming from an offline manual refresh
+            const wasOfflineReload = sessionStorage.getItem('offlineReload') === 'true';
+            if (wasOfflineReload) {
+                // Clear the flag
+                sessionStorage.removeItem('offlineReload');
+                
+                // Don't start the auto-refresh cycle immediately
+                if (!navigator.onLine) {
+                    console.log('Detected manual refresh while offline, delaying auto-refresh');
+                    // Show offline indicator
+                    const offlineIndicator = document.getElementById('offline-indicator');
+                    if (offlineIndicator) {
+                        offlineIndicator.style.display = 'block';
+                    }
+                    document.body.classList.add('offline-mode');
+                    
+                    // Start the refresh cycle with a delay
+                    setTimeout(() => {
+                        reloadWithPrefetch();
+                    }, reloadInterval * 2); // Wait double the normal reload time
+                    return;
+                }
+            }
+            
+            // Normal load, start refresh cycle
             reloadWithPrefetch();
         });
     </script>
