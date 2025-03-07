@@ -5,16 +5,55 @@
     <meta name="description" content="Digital innovation collective managing premium lifestyle and technology brands. Specializing in sustainable luxury, creative technology, and software development since 2025.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
+    
+    <!-- Add service worker registration -->
     <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        // Handle offline status
+        let isOffline = false;
+        
+        window.addEventListener('online', () => {
+            isOffline = false;
+            document.body.classList.remove('offline-mode');
+            const offlineIndicator = document.getElementById('offline-indicator');
+            if (offlineIndicator) {
+                offlineIndicator.style.display = 'none';
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            isOffline = true;
+            document.body.classList.add('offline-mode');
+            const offlineIndicator = document.getElementById('offline-indicator');
+            if (offlineIndicator) {
+                offlineIndicator.style.display = 'block';
+            }
+        });
+        
         // Parse reload interval from query string, default to 5000ms
         const urlParams = new URLSearchParams(window.location.search);
         const reloadInterval = parseInt(urlParams.get('reload')) || 5000;
         
         // Prefetch function
         function prefetchPage() {
-            return fetch(window.location.href)
+            return fetch(window.location.href, { cache: "no-store" })
                 .then(response => response.text())
-                .catch(error => console.error('Prefetch failed:', error));
+                .catch(error => {
+                    console.error('Prefetch failed:', error);
+                    return null;
+                });
         }
 
         // Initialize prefetch on page load
@@ -32,18 +71,31 @@
             // Schedule the reload
             setTimeout(() => {
                 const modal = document.getElementById('warningModal');
-                if (modal.classList.contains('visible')) {
+                if (modal && modal.classList.contains('visible')) {
                     setTimeout(() => {
                         reloadWithPrefetch();
                     }, reloadInterval);
-                    return
+                    return;
                 }
+                
+                // If we're offline, don't attempt to reload the page
+                if (isOffline) {
+                    console.log('Device is offline, skipping reload');
+                    // Just restart the cycle
+                    prefetchPromise = null;
+                    reloadWithPrefetch();
+                    return;
+                }
+                
+                // Only reload if we're online
                 window.location.reload();
             }, reloadInterval);
         }
 
         // Start the reload cycle when page loads
-        window.addEventListener('load', reloadWithPrefetch);
+        window.addEventListener('load', () => {
+            reloadWithPrefetch();
+        });
     </script>
     <style>
         html, body {
@@ -77,6 +129,7 @@
         #box {
             float: none;
             margin: 0 auto;
+            position: relative;
         }
         
         ul {
@@ -327,10 +380,44 @@
         a.bold-hover:hover {
             font-weight: bold;
         }
+        
+        /* Offline indicator styles */
+        #offline-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(255, 0, 0, 0.7);
+            color: white;
+            text-align: center;
+            padding: 5px;
+            z-index: 1001;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Animation for connection status */
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        #offline-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* Style changes when offline */
+        body.offline-mode {
+            background-color: #f8f8f8;
+        }
     </style>
     <script defer data-domain="d3v.ltd" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
+<!-- Offline indicator -->
+<div id="offline-indicator">You are currently offline. The app is waiting to reconnect...</div>
+
 <div id="box">
     <pre style="margin-bottom: -5px;">                  ___
                  / <span class="red">__</span>\<span class="red">___</span>
@@ -543,6 +630,15 @@
         const modal = document.getElementById('warningModal');
         if (event.target === modal) {
             closeModal();
+        }
+    }
+    
+    // Check if we're currently offline and set the indicator
+    if (!navigator.onLine) {
+        document.body.classList.add('offline-mode');
+        const offlineIndicator = document.getElementById('offline-indicator');
+        if (offlineIndicator) {
+            offlineIndicator.style.display = 'block';
         }
     }
 </script>
