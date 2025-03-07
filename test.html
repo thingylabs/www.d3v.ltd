@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        #status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .online {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .offline {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <h1>Offline Support Test</h1>
+    
+    <div id="status">Checking connection status...</div>
+    
+    <p>This page is testing whether the service worker is correctly caching content for offline use.</p>
+    
+    <button id="testBtn">Test Offline Support</button>
+    
+    <script>
+        // Update status based on online/offline
+        function updateStatus() {
+            const status = document.getElementById('status');
+            if (navigator.onLine) {
+                status.textContent = "You are ONLINE";
+                status.className = "online";
+            } else {
+                status.textContent = "You are OFFLINE";
+                status.className = "offline";
+            }
+        }
+        
+        // Initial status update
+        updateStatus();
+        
+        // Update status when online/offline status changes
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        // Test button
+        document.getElementById('testBtn').addEventListener('click', () => {
+            alert('If service worker is working correctly, you should be able to disconnect from the internet, reload this page, and still see its content.');
+        });
+    </script>
+</body>
+</html>
