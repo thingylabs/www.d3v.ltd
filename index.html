@@ -60,7 +60,7 @@
             document.body.classList.add('offline-mode');
             const offlineIndicator = document.getElementById('offline-indicator');
             if (offlineIndicator) {
-                offlineIndicator.style.display = 'block';
+                offlineIndicator.style.display = 'inline-block';
             }
         });
         
@@ -80,7 +80,7 @@
                     isOffline = event.data.isOffline;
                     const offlineIndicator = document.getElementById('offline-indicator');
                     if (offlineIndicator) {
-                        offlineIndicator.style.display = isOffline ? 'block' : 'none';
+                        offlineIndicator.style.display = isOffline ? 'inline-block' : 'none';
                     }
                     document.body.classList.toggle('offline-mode', isOffline);
                 }
@@ -166,7 +166,7 @@
                     // Show offline indicator
                     const offlineIndicator = document.getElementById('offline-indicator');
                     if (offlineIndicator) {
-                        offlineIndicator.style.display = 'block';
+                        offlineIndicator.style.display = 'inline-block';
                     }
                     document.body.classList.add('offline-mode');
                     
@@ -469,39 +469,44 @@
         /* Offline indicator styles */
         #offline-indicator {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background-color: rgba(255, 0, 0, 0.7);
-            color: white;
+            bottom: 20px;
+            right: 20px;
+            left: auto;
+            background-color: white;
+            color: red;
             text-align: center;
-            padding: 5px;
+            padding: 5px 10px;
             z-index: 1001;
-            font-weight: bold;
+            font-weight: normal;
+            font-size: 12px;
             display: none;
+            border: 1px solid red;
+            border-radius: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-family: Verdana, Arial, Helvetica, SunSans-Regular, Sans-Serif;
         }
         
         /* Animation for connection status */
-        @keyframes pulse {
-            0% { opacity: 0.7; }
+        @keyframes subtle-pulse {
+            0% { opacity: 0.9; }
             50% { opacity: 1; }
-            100% { opacity: 0.7; }
+            100% { opacity: 0.9; }
         }
         
         #offline-indicator {
-            animation: pulse 1.5s infinite;
+            animation: subtle-pulse 2s infinite;
         }
         
-        /* Style changes when offline */
+        /* Style changes when offline - keeping them minimal */
         body.offline-mode {
-            background-color: #f8f8f8;
+            background-color: white;
         }
     </style>
     <script defer data-domain="d3v.ltd" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 <!-- Offline indicator -->
-<div id="offline-indicator">You are currently offline. The app is waiting to reconnect...</div>
+<div id="offline-indicator">Offline mode [ waiting to reconnect ]</div>
 
 <div id="box">
     <pre style="margin-bottom: -5px;">                  ___
@@ -723,7 +728,7 @@
         document.body.classList.add('offline-mode');
         const offlineIndicator = document.getElementById('offline-indicator');
         if (offlineIndicator) {
-            offlineIndicator.style.display = 'block';
+            offlineIndicator.style.display = 'inline-block';
         }
     }
 </script>
