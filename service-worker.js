@@ -1,4 +1,4 @@
-// service-worker.js
+// service-worker.js - simplified version with fault tolerance
 const CACHE_NAME = 'd3v-site-cache-v1';
 const OFFLINE_URL = '/index.html';
 const urlsToCache = [
@@ -18,11 +18,10 @@ const urlsToCache = [
   '/android-chrome-512x512.png',
   '/android-chrome-192x192-bw.png',
   '/android-chrome-512x512-bw.png',
-  '/site.webmanifest',
-  'https://plausible.io/js/script.js'
+  '/site.webmanifest'
 ];
 
-// Install event - Cache essential assets
+// Install event - Cache essential assets with individual error handling
 self.addEventListener('install', event => {
   console.log('Service Worker installing');
   self.skipWaiting(); // Ensure new service worker activates immediately
@@ -30,11 +29,27 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        console.log('Caching resources individually for better error handling');
+        
+        // Cache resources individually instead of using addAll
+        // This prevents one failure from stopping all caching
+        return Promise.allSettled(
+          urlsToCache.map(url => {
+            return fetch(url)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+                console.warn(`Failed to fetch resource: ${url}, status: ${response.status}`);
+              })
+              .catch(error => {
+                console.error(`Failed to cache: ${url}`, error);
+              });
+          })
+        );
       })
-      .catch(error => {
-        console.error('Failed to cache assets:', error);
+      .then(() => {
+        console.log('Caching complete, even with some potential failures');
       })
   );
 });
