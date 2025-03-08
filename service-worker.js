@@ -1,4 +1,4 @@
-// service-worker.js - simplified version with favicon support
+// service-worker.js
 const CACHE_NAME = 'd3v-site-cache-v1';
 const OFFLINE_URL = '/index.html';
 const urlsToCache = [
